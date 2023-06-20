@@ -3,6 +3,7 @@
 - The original code of solve_tridiag was taken from lineax (https://github.com/google/lineax), under Apache 2.0 License (See LICENSES_bundled.txt).
 
 """
+import numpy as np
 import jax.numpy as jnp
 from jax.lax import scan
 
@@ -58,6 +59,41 @@ def solve_tridiag(diagonal, lower_diagonal, upper_diagonal, vector):
         _, solution = scan(backsub, init_backsub, cd_p, reverse=True, unroll=32)
 
         return solution
+
+def solve_block_tridiag(D, L, U, vector_folded):
+    """a block tridiagonal matrix solver using HBISA (Yang et al. J Supercomput 2017 73,1760-1781).
+
+    HBISA is a hybrid blocked iterative solving algorithm.
+    
+    Args:
+        matrix_diagonal (list of 2x2 matrix): List of square matrices for the main diagonal .
+        matrix_lower_diagonal (list of 2x2 matrix): List of square matrices for the lower diagonal.
+        matrix_upper_diagonal (list of 2x2 matrix): List of square matrices for the upper diagonal.
+        vector_folded: folded vector whose shape is (n, matrix_size), where matrix_shape*n is the length of a vector x  
+    Returns:
+        
+    """
+    Niter=10
+    O = np.zeros_like(D[0])
+    Utilde = np.concatenate((O, U), axis=0)
+    Ltilde = np.concatenate((L, O), axis=0)
+    UplusL = Utilde + Ltilde
+
+    for i in range(0,Niter):
+        r_folded = vector_folded - jnp.matmul(UplusL,vector_folded[...,None])
+    
+
+
+
+
+
+def test_solve_block_tridiag():
+    import .gen_block_tridiag
+    D = [np.array([[1, 2], [3, 4]]), np.array([[5, 6], [7, 8]]), np.array([[9, 10], [11, 12]])]
+    L = [np.array([[13, 14], [15, 16]]), np.array([[17, 18], [19, 20]])]
+    U = [np.array([[21, 22], [23, 24]]), np.array([[25, 26], [27, 28]])]
+    BTD = gen_block_tridiag(D, L, U)
+
 
 def test_solve_tridiag():
     diag = jnp.array([1.,2.,3.,4.])
