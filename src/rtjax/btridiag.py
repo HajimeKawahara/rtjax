@@ -33,37 +33,26 @@ def create_block_tridiagonal(matrix_diagonal, matrix_lower_diagonal, matrix_uppe
     block_tridiagonal_matrix = np.bmat(block_matrix)
     return block_tridiagonal_matrix
 
-def decompose_block_diagonal(matrix_list):
+def decompose_block_diagonal_to_tridiagonal(diagonal_matrices):
     """
-    Given a list of 2x2 matrices, computes the main diagonal 'd', 
-    the lower diagonal 'l', and the upper diagonal 'u' for the equivalent 4x4 tridiagonal matrix.
+    Given N the block diagonal 2x2 matrix component of the block diagonal matrix, computes the main diagonal 'd', 
+    the lower diagonal 'l', and the upper diagonal 'u' for the equivalent 2N x 2N tridiagonal matrix.
 
-    Parameters
-    ----------
-    matrix_list : ndarray
+    Args:
+        diagonal_matrices : ndarray
         The list of 2x2 matrices, N components, in nd 3D array form (N,2,2).
 
-    Returns
-    -------
-    d : ndarray
-        The main diagonal of the equivalent 2Nx2N tridiagonal matrix.
-    l : ndarray
-        The lower diagonal of the equivalent 2Nx2N tridiagonal matrix.
-    u : ndarray
-        The upper diagonal of the equivalent 2Nx2N tridiagonal matrix.
+    Returns:
+        d (ndarray): The main diagonal of the equivalent 2Nx2N tridiagonal matrix.
+        l (ndarray): The lower diagonal of the equivalent 2Nx2N tridiagonal matrix.
+        u (ndarray): The upper diagonal of the equivalent 2Nx2N tridiagonal matrix.
 
     """
-    # The main diagonal is the diagonal of each 2x2 matrix
-    d = np.diagonal(matrix_list, axis1=1, axis2=2).flatten()
+    nmat = len(diagonal_matrices)    
+    d = np.diagonal(diagonal_matrices, axis1=1, axis2=2).flatten()
+    l = np.insert(diagonal_matrices[:, 1, 0], range(1, nmat), 0)
+    u = np.insert(diagonal_matrices[:, 0, 1], range(1, nmat), 0)
     
-    # The lower diagonal is the bottom-left of each 2x2 matrix,
-    # with zeros in the positions corresponding to the zero blocks
-    l = matrix_list[:, 1, 0]
-    l = np.insert(l, range(1, len(l)), 0)
-    # The upper diagonal is the top-right of each 2x2 matrix,
-    # with zeros in the positions corresponding to the zero blocks
-    u = matrix_list[:, 0, 1]
-    u = np.insert(u, range(1, len(u)), 0)
     return d, l, u
 
 import pytest
@@ -74,9 +63,9 @@ def test_get_diagonals():
     D1 = np.array([[5, 6], [7, 8]])
     D2 = np.array([[9, 10], [11, 12]])
     D3 = np.array([[13, 14], [15, 16]])
-    L = [D0, D1, D2, D3]
+    L = np.array([D0, D1, D2, D3])
     
-    d, l, u = decompose_block_diagonal(L)
+    d, l, u = decompose_block_diagonal_to_tridiagonal(L)
     print(d, l, u)
     np.testing.assert_array_equal(d, np.array([1, 4, 5, 8, 9, 12, 13, 16]))
     np.testing.assert_array_equal(l, np.array([3, 0, 7, 0, 11, 0, 15]))
@@ -97,5 +86,5 @@ def test_create_block_tridiagonal():
     np.testing.assert_array_equal(create_block_tridiagonal(D, L, U), expected_result)
 
 if __name__ == "__main__":
-    test_create_block_tridiagonal()
+    #test_create_block_tridiagonal()
     test_get_diagonals()

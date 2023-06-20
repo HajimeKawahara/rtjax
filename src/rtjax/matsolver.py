@@ -81,7 +81,7 @@ def solve_block_tridiag(D, L, U, vector_folded):
 
     for i in range(0,Niter):
         r_folded = vector_folded - jnp.matmul(UplusL,vector_folded[...,None])
-    
+        
 
 
 
