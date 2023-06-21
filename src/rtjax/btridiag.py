@@ -1,8 +1,10 @@
 import numpy as np
 import pytest
 
-def create_block_tridiagonal(matrix_diagonal, matrix_lower_diagonal, matrix_upper_diagonal):
-    """Function to create a block tridiagonal matrix.
+
+def generate_block_tridiagonal(matrix_diagonal, matrix_lower_diagonal,
+                               matrix_upper_diagonal):
+    """generates a block tridiagonal matrix given matrix_diagonal, matrix_lower_diagonal, matrix_upper_diagonal
 
     Args:
         matrix_diagonal (list of np.ndarray): List of square matrices for the main diagonal.
@@ -33,30 +35,50 @@ def create_block_tridiagonal(matrix_diagonal, matrix_lower_diagonal, matrix_uppe
     block_tridiagonal_matrix = np.bmat(block_matrix)
     return block_tridiagonal_matrix
 
-def decompose_block_diagonal_to_tridiagonal(diagonal_matrices):
+
+def decompose_block_diagonals_to_tridiagonals(diagonal_matrices):
     """
-    Given N the block diagonal 2x2 matrix component of the block diagonal matrix, computes the main diagonal 'd', 
+    Given N-block diagonal 2x2 matrix component of the block diagonal matrix, computes the main diagonal 'd', 
     the lower diagonal 'l', and the upper diagonal 'u' for the equivalent 2N x 2N tridiagonal matrix.
 
+    Note:
+        The block diagonal matrix L whose diagonal component consists of a 2x2 matrix can be regarded as a 2N x 2N tridiagonal matrix, 
+        where N is the number of the diagonal components. This method decomposes L to the center, lower, and upper diagonals, d, l, and u. 
+
     Args:
-        diagonal_matrices : ndarray
-        The list of 2x2 matrices, N components, in nd 3D array form (N,2,2).
+        diagonal_matrices (ndarray): [N,2,2], block diagonal components (N block diagonal 2x2 matrix components of the block diagonal matrix)
 
     Returns:
-        d (ndarray): The main diagonal of the equivalent 2Nx2N tridiagonal matrix.
-        l (ndarray): The lower diagonal of the equivalent 2Nx2N tridiagonal matrix.
-        u (ndarray): The upper diagonal of the equivalent 2Nx2N tridiagonal matrix.
+        diagonal (ndarray): The main diagonal of the equivalent 2Nx2N tridiagonal matrix.
+        lower_diagonal (ndarray): The lower diagonal of the equivalent 2Nx2N tridiagonal matrix.
+        upper_diagonal (ndarray): The upper diagonal of the equivalent 2Nx2N tridiagonal matrix.
+
+    Examples:
+
+        >>> D0 = np.array([[1, 2], [3, 4]])
+        >>> D1 = np.array([[5, 6], [7, 8]])
+        >>> D2 = np.array([[9, 10], [11, 12]])
+        >>> D3 = np.array([[13, 14], [15, 16]])
+        >>> L = np.array([D0, D1, D2, D3])
+        >>> d, l, u = decompose_block_diagonal_to_tridiagonal(L)
+        >>> d #-> [1, 4, 5, 8, 9, 12, 13, 16]
+        >>> l #-> [3, 0, 7, 0, 11, 0, 15]
+        >>> u #-> [2, 0, 6, 0, 10, 0, 14]
+
 
     """
-    nmat = len(diagonal_matrices)    
-    d = np.diagonal(diagonal_matrices, axis1=1, axis2=2).flatten()
-    l = np.insert(diagonal_matrices[:, 1, 0], range(1, nmat), 0)
-    u = np.insert(diagonal_matrices[:, 0, 1], range(1, nmat), 0)
-    
-    return d, l, u
+    nmat = len(diagonal_matrices)
+    print(nmat)
+    diagonal = np.diagonal(diagonal_matrices, axis1=1, axis2=2).flatten()
+    lower_diagonal = np.insert(diagonal_matrices[:, 1, 0], range(1, nmat), 0)
+    upper_diagonal = np.insert(diagonal_matrices[:, 0, 1], range(1, nmat), 0)
+
+    return diagonal, lower_diagonal, upper_diagonal
+
 
 import pytest
 import numpy as np
+
 
 def test_get_diagonals():
     D0 = np.array([[1, 2], [3, 4]])
@@ -64,8 +86,8 @@ def test_get_diagonals():
     D2 = np.array([[9, 10], [11, 12]])
     D3 = np.array([[13, 14], [15, 16]])
     L = np.array([D0, D1, D2, D3])
-    
-    d, l, u = decompose_block_diagonal_to_tridiagonal(L)
+
+    d, l, u = decompose_block_diagonals_to_tridiagonals(L)
     print(d, l, u)
     np.testing.assert_array_equal(d, np.array([1, 4, 5, 8, 9, 12, 13, 16]))
     np.testing.assert_array_equal(l, np.array([3, 0, 7, 0, 11, 0, 15]))
@@ -73,17 +95,21 @@ def test_get_diagonals():
 
 
 def test_create_block_tridiagonal():
-    D = [np.array([[1, 2], [3, 4]]), np.array([[5, 6], [7, 8]]), np.array([[9, 10], [11, 12]])]
+    D = [
+        np.array([[1, 2], [3, 4]]),
+        np.array([[5, 6], [7, 8]]),
+        np.array([[9, 10], [11, 12]])
+    ]
     L = [np.array([[13, 14], [15, 16]]), np.array([[17, 18], [19, 20]])]
     U = [np.array([[21, 22], [23, 24]]), np.array([[25, 26], [27, 28]])]
 
-    expected_result = np.bmat([
-        [D[0], U[0], np.zeros_like(D[0])],
-        [L[0], D[1], U[1]],
-        [np.zeros_like(D[0]), L[1], D[2]]
-    ])
+    expected_result = np.bmat([[D[0], U[0], np.zeros_like(D[0])],
+                               [L[0], D[1], U[1]],
+                               [np.zeros_like(D[0]), L[1], D[2]]])
 
-    np.testing.assert_array_equal(create_block_tridiagonal(D, L, U), expected_result)
+    np.testing.assert_array_equal(generate_block_tridiagonal(D, L, U),
+                                  expected_result)
+
 
 if __name__ == "__main__":
     #test_create_block_tridiagonal()
