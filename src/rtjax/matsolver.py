@@ -6,7 +6,8 @@
 import numpy as np
 import jax.numpy as jnp
 from jax.lax import scan
-
+from rtjax.btridiag import generate_block_tridiagonal
+    
 def solve_tridiag(diagonal, lower_diagonal, upper_diagonal, vector):
     """Tridiagonal Linear Solver for A x = b, using Thomas Algorithm  
     
@@ -60,7 +61,7 @@ def solve_tridiag(diagonal, lower_diagonal, upper_diagonal, vector):
 
     return solution
 
-def solve_block_tridiag(D, L, U, vector_folded):
+def solve_block_tridiag(D, L, U, vector_folded, BTD):
     """a block tridiagonal matrix solver using HBISA (Yang et al. J Supercomput 2017 73,1760-1781), A x = b.
 
     HBISA is a hybrid blocked iterative solving algorithm.
@@ -88,28 +89,33 @@ def solve_block_tridiag(D, L, U, vector_folded):
     #iterative solver
     x_folded = np.zeros_like(vector_folded)
     
-        
+    #debug
+    Ox = np.array([np.array([[0., 0.], [0., 0.]]), np.array([[0., 0.], [0., 0.]])])
+    Dmat = generate_block_tridiagonal(D, Ox, Ox)
+    print(Dmat)
     for i in range(0,Niter):
         r_folded = vector_folded - jnp.matmul(UplusL,x_folded[...,None])[...,0]
-        r = r_folded.flatten()
-        import sys
-        sys.exit()
         
-        x_folded = solve_tridiag(diagonal, lower_diagonal, upper_diagonal, r).reshape(N,2)  
+        r = r_folded.flatten()
+        x_folded = solve_tridiag(jnp.array(diagonal), jnp.array(lower_diagonal), jnp.array(upper_diagonal), jnp.array(r)).reshape(N,2)  
 
+        #debug
+        #debug
+        print("->",np.max(Dmat@x_folded.flatten()-r))
+        
     return x_folded
 
 
 
 def test_solve_block_tridiag():
-    from rtjax.btridiag import generate_block_tridiagonal
-    D = np.array([np.array([[1, 2], [3, 4]]), np.array([[5, 6], [7, 8]]), np.array([[9, 10], [11, 12]])])
-    L = np.array([np.array([[13, 14], [15, 16]]), np.array([[17, 18], [19, 20]])])
-    U = np.array([np.array([[21, 22], [23, 24]]), np.array([[25, 26], [27, 28]])])
-    #BTD = generate_block_tridiagonal(D, L, U)
+    D = np.array([np.array([[1., 2], [3, 4]]), np.array([[5, 6], [7, 8]]), np.array([[9, 10], [11, 12]])])
+    L = np.array([np.array([[13., 14], [15, 16]]), np.array([[17, 18], [19, 20]])])
+    U = np.array([np.array([[21., 22], [23, 24]]), np.array([[25, 26], [27, 28]])])
+    BTD = generate_block_tridiagonal(D, L, U)
     vector_folded = np.array([1.,2.,3.,4.,5.,6.]).reshape(3,2)
-    x = solve_block_tridiag(D, L, U, vector_folded)
-    print(x)
+    x_folded = solve_block_tridiag(D, L, U, vector_folded, BTD)
+    x = x_folded.flatten()
+    print(BTD@x)
 
 def test_solve_tridiag():
     diag = jnp.array([1.,2.,3.,4.])
