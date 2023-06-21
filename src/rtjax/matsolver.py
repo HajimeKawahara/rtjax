@@ -84,9 +84,12 @@ def solve_block_tridiag(D, L, U, vector_folded, BTD):
     O = np.zeros((1,2,2))
     Utilde = np.concatenate([O, U], axis=0)
     Ltilde = np.concatenate([L, O], axis=0)
+    #Utilde = np.concatenate([U, O], axis=0)
+    #Ltilde = np.concatenate([O, L], axis=0)
+    
     UplusL = Utilde + Ltilde
 
-    #iterative solver
+    #iterative solver\
     x_folded = np.zeros_like(vector_folded)
     
     #debug
@@ -94,7 +97,8 @@ def solve_block_tridiag(D, L, U, vector_folded, BTD):
     Dmat = generate_block_tridiagonal(D, Ox, Ox)
     print(Dmat)
     for i in range(0,Niter):
-        r_folded = vector_folded - jnp.matmul(UplusL,x_folded[...,None])[...,0]
+        r_folded = vector_folded - _parallel_mutmal(UplusL, x_folded)
+        #jnp.matmul(UplusL,x_folded[...,None])[...,0]
         
         r = r_folded.flatten()
         x_folded = solve_tridiag(jnp.array(diagonal), jnp.array(lower_diagonal), jnp.array(upper_diagonal), jnp.array(r)).reshape(N,2)  
@@ -105,6 +109,16 @@ def solve_block_tridiag(D, L, U, vector_folded, BTD):
         
     return x_folded
 
+
+def _parallel_mutmal(A_folded, x_folded):
+    return jnp.matmul(A_folded,x_folded[...,None])[...,0]
+
+def test_parallel_mutmul():
+    D = np.array([np.array([[1., 2], [3, 4]]), np.array([[5, 6], [7, 8]]), np.array([[9, 10], [11, 12]])])
+    vector_folded = np.array([1.,2.,3.,4.,5.,6.]).reshape(3,2)
+    ans = _parallel_mutmal(D, vector_folded)
+    for i in range(0,3):
+        assert np.sum(D[i,...]@vector_folded[i,...] - ans[i,...])==0.0
 
 
 def test_solve_block_tridiag():
@@ -133,4 +147,5 @@ def test_solve_tridiag():
 
 if __name__ == "__main__":
     #test_solve_tridiag()
-    test_solve_block_tridiag()
+    #test_solve_block_tridiag()
+    test_parallel_mutmul()
