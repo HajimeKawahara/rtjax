@@ -61,100 +61,6 @@ def solve_tridiag(diagonal, lower_diagonal, upper_diagonal, vector):
 
     return solution
 
-def solve_block_tridiag(D, L, U, vector_folded, BTD):
-    """a block tridiagonal matrix solver using HBISA (Yang et al. J Supercomput 2017 73,1760-1781), A x = b.
-
-    HBISA is a hybrid blocked iterative solving algorithm.
-    
-    Args:
-        matrix_diagonal (list of 2x2 matrix): List of square matrices for the main diagonal .
-        matrix_lower_diagonal (list of 2x2 matrix): List of square matrices for the lower diagonal.
-        matrix_upper_diagonal (list of 2x2 matrix): List of square matrices for the upper diagonal.
-        vector_folded: right-hand side vector b, but folded to (2, N)
-        
-    Returns:
-        
-    """
-    from rtjax.btridiag import decompose_block_diagonals_to_tridiagonals
-    Niter=10
-    N = len(D)
-
-    #settings
-    diagonal, lower_diagonal, upper_diagonal = decompose_block_diagonals_to_tridiagonals(D)        
-    #O = np.zeros((1,2,2))
-    #Ltilde = np.concatenate([L, O], axis=0)
-
-    #iterative solver\
-    x_folded = np.zeros_like(vector_folded)
-    O = np.zeros((1,2))
-    
-    #debug
-    Ox = np.array([[[0., 0.], [0., 0.]], [[0., 0.], [0., 0.]]])
-    Dmat = generate_block_tridiagonal(D, Ox, Ox)
-    Amat = generate_block_tridiagonal(D, L, U)
-    
-    y=np.array([1.,2.,3.,4.,5.,6.])
-    val0=Amat@y
-
-    y_folded=y.reshape(N,2)
-    Ux = _parallel_mutmal(U, y_folded[1:,:])
-    Ux = np.concatenate([Ux, O], axis=0)
-    Lx = _parallel_mutmal(L, y_folded[:-1,:])
-    Lx = np.concatenate([O, Lx], axis=0)
-
-    val1=_parallel_mutmal(D, y_folded) + Ux + Lx
-    print(val0)
-    print(val1)
-    #import sys
-    #sys.exit()
-    
-    for i in range(0,Niter):
-        x_folded_prev = x_folded[:] #debug
-        
-        Ux = _parallel_mutmal(U, x_folded[1:, :])
-        Ux = np.concatenate([Ux, O], axis=0)
-
-        Lx = _parallel_mutmal(L, x_folded[:-1, :])
-        Lx = np.concatenate([O, Lx], axis=0)
-        
-        r_folded = vector_folded - Lx - Ux 
-        r = r_folded.flatten()
-
-        x_folded = solve_tridiag(jnp.array(diagonal), jnp.array(lower_diagonal), jnp.array(upper_diagonal), jnp.array(r)).reshape(N,2)  
-
-        #debug
-        residuals_0 = Dmat@x_folded_prev.flatten()-r_folded.flatten()
-        residuals_1 = Dmat@x_folded.flatten()-r_folded.flatten()
-        #print(i, "residuals:",residuals_0,"->", residuals_1)
-        #print(i, "x:",x_folded_prev.flatten(),"->", x_folded.flatten())
-        print(Amat@x_folded.flatten() - vector_folded.flatten())
-        #print("->",np.max(Dmat@x_folded.flatten()-r))
-        
-    return x_folded
-
-
-def _parallel_mutmal(A_folded, x_folded):
-    return jnp.matmul(A_folded,x_folded[...,None])[...,0]
-
-def test_parallel_mutmul():
-    D = np.array([np.array([[1., 2], [3, 4]]), np.array([[5, 6], [7, 8]]), np.array([[9, 10], [11, 12]])])
-    vector_folded = np.array([1.,2.,3.,4.,5.,6.]).reshape(3,2)
-    ans = _parallel_mutmal(D, vector_folded)
-    for i in range(0,3):
-        assert np.sum(D[i,...]@vector_folded[i,...] - ans[i,...])==0.0
-
-
-def test_solve_block_tridiag():
-    D = np.array([np.array([[1., 2], [3, 4]]), np.array([[5, 6], [7, 8]]), np.array([[9, 10], [11, 12]])])
-    L = np.array([np.array([[13., 14], [15, 16]]), np.array([[17, 18], [19, 20]])])
-    U = np.array([np.array([[21., 22], [23, 24]]), np.array([[25, 26], [27, 28]])])
-    BTD = generate_block_tridiagonal(D, L, U)
-    #vector_folded = np.array([1.,2.,3.,4.,5.,6.]).reshape(3,2)
-    vector_folded = np.array([1.,0.,0.,0.,0.,0.]).reshape(3,2)
-    x_folded = solve_block_tridiag(D, L, U, vector_folded, BTD)
-    x = x_folded.flatten()
-    print(BTD@x)
-
 def test_solve_tridiag():
     diag = jnp.array([1.,2.,3.,4.])
     lower_diag = jnp.array([5.,6.,7.])
@@ -170,6 +76,4 @@ def test_solve_tridiag():
     assert jnp.sum((mat@x - vector)**2) < 1.e-12
 
 if __name__ == "__main__":
-    #test_solve_tridiag()
-    test_solve_block_tridiag()
-    #test_parallel_mutmul()
+    test_solve_tridiag()
