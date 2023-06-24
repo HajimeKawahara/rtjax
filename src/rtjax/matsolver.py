@@ -95,14 +95,17 @@ def solve_block_tridiag(diagonals, lower_diagonals, upper_diagonals, vectors):
         b, d = bd
         a, c = lower_diagonals[a_index], upper_diagonals[c_index]
         gamma = b - a @ c_p
-        #solve gamma new_d_p = d - a * d_p
-        #new_d_p = (d - a * d_p) / gamma
-        new_d_p = jnp.linalg.solve(gamma, d - a @ d_p)
-        #solve gamma new_c_p = c 
-        #new_c_p = c / gamma
-        gamma_inv = jnp.linalg.inv(gamma)
-        new_c_p = gamma_inv@c
 
+        gamma_inv = jnp.linalg.inv(gamma)
+
+        #solve gamma new_d_p = d - a * d_p
+        new_d_p = jnp.linalg.solve(gamma, d - a @ d_p)
+        #new_d_p = gamma_inv@(d - a @ d_p)
+        
+        #solve gamma new_c_p = c 
+        #new_c_p = gamma_inv@c
+        new_c_p = jnp.linalg.solve(gamma, c)
+        
         return (new_c_p, new_d_p, step + 1), (new_c_p, new_d_p)
 
     def backsub(prev_x_carry, cd_p):
@@ -137,12 +140,27 @@ def test_solve_tridiag():
     vector = jnp.array([4.,3.,2.,1.])
 
     x = solve_tridiag(diag, lower_diag, upper_diag, vector)
-
+    print(x, "tridiag")
     mat = jnp.array([[1.,8.,0.,0.],
                      [5.,2.,9.,0.],
                      [0.,6.,3.,10.],
                      [0.,0.,7.,4.]])
     assert jnp.sum((mat@x - vector)**2) < 1.e-12
+
+def test_solve_block_tridiag_mimic():
+    from jax.config import config
+    config.update("jax_enable_x64", True)
+    D = jnp.array([np.array([[1., 0], [0, 1]]), np.array([[2, 0], [0, 2]]), np.array([[3, 0], [0, 3]]), np.array([[4., 0], [0, 4]])])
+    L = jnp.array([np.array([[5., 0], [0, 5]]), np.array([[6, 0], [0, 6]]), np.array([[7, 0], [0, 7]])])
+    U = jnp.array([np.array([[8., 0], [0, 8]]), np.array([[9, 0], [0, 9]]), np.array([[10, 0], [0, 10]])])
+    BTD = generate_block_tridiagonal(D, L, U)
+    vector_folded = jnp.array([1.,1.,2.,2.,3.,3.,4.,4.]).reshape(4,2)
+    
+    x_folded = solve_block_tridiag(D, L, U, vector_folded)
+    print(x_folded, "block tridiag")
+    print(x_folded.shape)
+    x = x_folded.flatten()
+    print(np.sum((BTD@x - vector_folded.flatten())**2))
 
 def test_solve_block_tridiag():
     from jax.config import config
@@ -162,6 +180,8 @@ def test_solve_block_tridiag():
     print(np.sum((BTD@x - vector_folded.flatten())**2))
 
 
+
 if __name__ == "__main__":
-    test_solve_block_tridiag()
-#    test_solve_tridiag()
+    test_solve_tridiag()
+    #test_solve_block_tridiag()
+    test_solve_block_tridiag_mimic()
