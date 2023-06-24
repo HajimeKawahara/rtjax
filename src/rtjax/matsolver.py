@@ -7,7 +7,8 @@ import numpy as np
 import jax.numpy as jnp
 from jax.lax import scan
 from rtjax.btridiag import generate_block_tridiagonal
-    
+
+
 def solve_tridiag(diagonal, lower_diagonal, upper_diagonal, vector):
     """Tridiagonal Linear Solver for A x = b, using Thomas Algorithm  
     
@@ -28,8 +29,7 @@ def solve_tridiag(diagonal, lower_diagonal, upper_diagonal, vector):
     Returns:
         1D array: solution vector (x)
     """
-        
-        
+
     size = len(diagonal)
 
     def thomas_scan(prev_cd_carry, bd):
@@ -61,6 +61,7 @@ def solve_tridiag(diagonal, lower_diagonal, upper_diagonal, vector):
 
     return solution
 
+
 def solve_block_tridiag(diagonals, lower_diagonals, upper_diagonals, vectors):
     """Block Tridiagonal Linear Solver for T x = d, using block Thomas Algorithm  
     
@@ -82,9 +83,9 @@ def solve_block_tridiag(diagonals, lower_diagonals, upper_diagonals, vectors):
     Returns:
         2D array: solution (x) [N, M]
     """
-    
+
     size = len(vectors)
-    
+
     def thomas_scan(prev_cd_carry, bd):
         c_p, d_p, step = prev_cd_carry
         # the index of `a` doesn't matter at step 0 as
@@ -95,16 +96,11 @@ def solve_block_tridiag(diagonals, lower_diagonals, upper_diagonals, vectors):
         b, d = bd
         a, c = lower_diagonals[a_index], upper_diagonals[c_index]
         gamma = b - a @ c_p
-#        gamma_inv = jnp.linalg.inv(gamma)
-
-        #solve gamma new_d_p = d - a * d_p
+        #solve gamma new_d_p = d - a @ d_p
         new_d_p = jnp.linalg.solve(gamma, d - a @ d_p)
-        #new_d_p = gamma_inv@(d - a @ d_p)
-        
-        #solve gamma new_c_p = c 
-        #new_c_p = gamma_inv@c
+        #solve gamma new_c_p = c
         new_c_p = jnp.linalg.solve(gamma, c)
-        
+
         return (new_c_p, new_d_p, step + 1), (new_c_p, new_d_p)
 
     def backsub(prev_x_carry, cd_p):
@@ -116,76 +112,53 @@ def solve_block_tridiag(diagonals, lower_diagonals, upper_diagonals, vectors):
     # not a dummy init! 0 is the proper value for all of these
     zero_submatrix = jnp.zeros_like(diagonals[0])
     zero_subvector = jnp.zeros_like(vectors[0])
-    init_thomas = (zero_submatrix, zero_subvector, 0) #c_p, d_p, step = prev_cd_carry
-    init_backsub = (zero_subvector, 0) #x_prev, step = prev_x_carry
-    
+    init_thomas = (zero_submatrix, zero_subvector, 0)
+    init_backsub = (zero_subvector, 0)
+
     diag_vec = (diagonals, vectors)
     _, cd_p = scan(thomas_scan, init_thomas, diag_vec, unroll=32)
     _, solution = scan(backsub, init_backsub, cd_p, reverse=True, unroll=32)
 
-    
     return solution
 
 
 def test_solve_tridiag():
     from jax.config import config
     config.update("jax_enable_x64", True)
-    
-    mat = jnp.array([[1.,8.,0.,0.],
-                     [5.,2.,9.,0.],
-                     [0.,6.,3.,10.],
-                     [0.,0.,7.,4.]])
-    ans = jnp.array([4.,3.,2.,1.])
-    vector = mat@ans
-
+    mat = jnp.array([[1., 8., 0., 0.], [5., 2., 9., 0.], [0., 6., 3., 10.],
+                     [0., 0., 7., 4.]])
+    ans = jnp.array([4., 3., 2., 1.])
+    vector = mat @ ans
     diag = jnp.diag(mat)
     lower_diag = jnp.diag(mat, k=-1)
     upper_diag = jnp.diag(mat, k=1)
-    
+
     x = solve_tridiag(diag, lower_diag, upper_diag, vector)
     print(x, "tridiag")
-    
-    assert jnp.sum((mat@x - vector)**2) == 0.0
 
-def test_solve_block_tridiag_mimic():
-    from jax.config import config
-    config.update("jax_enable_x64", True)
-    D = jnp.array([np.array([[1., 0], [0, 1]]), np.array([[2, 0], [0, 2]]), np.array([[3, 0], [0, 3]]), np.array([[4., 0], [0, 4]])])
-    L = jnp.array([np.array([[5., 0], [0, 5]]), np.array([[6, 0], [0, 6]]), np.array([[7, 0], [0, 7]])])
-    U = jnp.array([np.array([[8., 0], [0, 8]]), np.array([[9, 0], [0, 9]]), np.array([[10, 0], [0, 10]])])
-    mat = generate_block_tridiagonal(D, L, U)
-    ans = jnp.array([4.,4.,3.,3.,2.,2.,1.,1.])
-    
-    vector_folded = (mat@ans).reshape(4,2)
+    assert jnp.sum((mat @ x - vector)**2) == 0.0
 
-    x_folded = solve_block_tridiag(D, L, U, vector_folded)
-    print(x_folded, "block tridiag")
-    print(x_folded.shape)
-    x = x_folded.flatten()
-    print(np.sum((mat@x - vector_folded.flatten())**2))
 
 def test_solve_block_tridiag():
     from jax.config import config
     config.update("jax_enable_x64", True)
-    D = jnp.array([np.array([[1., 2], [3, 4]]), np.array([[5, 6], [7, 8]]), np.array([[9, 10], [11, 12]])])
-    L = jnp.array([np.array([[13., 14], [15, 16]]), np.array([[17, 18], [19, 20]])])
-    U = jnp.array([np.array([[21., 22], [23, 24]]), np.array([[25, 26], [27, 28]])])
+    from numpy.random import randn, seed
+    seed(12)
+    D = jnp.array(randn(12).reshape(3, 2, 2))
+    L = jnp.array(randn(8).reshape(2, 2, 2))
+    U = jnp.array(randn(8).reshape(2, 2, 2))
     mat = generate_block_tridiagonal(D, L, U)
-    ans = jnp.array([3.,1.,0.0,0.0,0.0,0.0])
-    
-    vector_folded = (mat@ans).reshape(3,2)
+    ans = jnp.array(randn(6))
+    vector_folded = (mat @ ans).reshape(3, 2)
 
     x_folded = solve_block_tridiag(D, L, U, vector_folded)
-    print(np.sum(x_folded,axis=1), "block tridiag")
-    print((x_folded), "block tridiag")
-    
-    print(x_folded.shape)
-    x = x_folded.flatten()
-    print(np.sum((mat@x - vector_folded.flatten())**2))
+    print(x_folded.flatten(), "block tridiag")
+    res = np.sum((ans - x_folded.flatten())**2)
+    print(res)
 
+    assert res < 1.e-28
 
 
 if __name__ == "__main__":
     test_solve_tridiag()
-    test_solve_block_tridiag_mimic()
     test_solve_block_tridiag()
