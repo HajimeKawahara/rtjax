@@ -100,7 +100,8 @@ def solve_block_tridiag(diagonals, lower_diagonals, upper_diagonals, vectors):
         new_d_p = jnp.linalg.solve(gamma, d - a @ d_p)
         #solve gamma new_c_p = c 
         #new_c_p = c / gamma
-        new_c_p = jnp.linalg.solve(gamma, c)
+        gamma_inv = jnp.linalg.inv(gamma)
+        new_c_p = gamma_inv@c
 
         return (new_c_p, new_d_p, step + 1), (new_c_p, new_d_p)
 
@@ -111,17 +112,21 @@ def solve_block_tridiag(diagonals, lower_diagonals, upper_diagonals, vectors):
         return (x_new, step + 1), x_new
 
     # not a dummy init! 0 is the proper value for all of these
-    #init_thomas = (0, 0, 0)
-    #init_backsub = (0, 0)
+#    init_thomas = (0, 0, 0)
+#    init_backsub = (0, 0)
+    zero_submatrix = jnp.zeros_like(diagonals[0])
     zero_subvector = jnp.zeros_like(vectors[0])
-    init_thomas = (zero_subvector, zero_subvector, 0)
-    init_backsub = (zero_subvector, zero_subvector)
+    init_thomas = (zero_submatrix, zero_subvector, 0) #c_p, d_p, step = prev_cd_carry
+    init_backsub = (zero_subvector, 0) #x_prev, step = prev_x_carry
     
     
     diag_vec = (diagonals, vectors)
     _, cd_p = scan(thomas_scan, init_thomas, diag_vec, unroll=32)
+    print(jnp.shape(cd_p[0]),"(*_*), Delta_k")
+    print(jnp.shape(cd_p[1]),"(*_*), yk ")
     _, solution = scan(backsub, init_backsub, cd_p, reverse=True, unroll=32)
 
+    
     return solution
 
 
@@ -139,5 +144,24 @@ def test_solve_tridiag():
                      [0.,0.,7.,4.]])
     assert jnp.sum((mat@x - vector)**2) < 1.e-12
 
+def test_solve_block_tridiag():
+    from jax.config import config
+    config.update("jax_enable_x64", True)
+    D = jnp.array([np.array([[1., 2], [3, 4]]), np.array([[5, 6], [7, 8]]), np.array([[9, 10], [11, 12]])])
+    L = jnp.array([np.array([[13., 14], [15, 16]]), np.array([[17, 18], [19, 20]])])
+    U = jnp.array([np.array([[21., 22], [23, 24]]), np.array([[25, 26], [27, 28]])])
+    BTD = generate_block_tridiagonal(D, L, U)
+    ans = jnp.array([1.,2.,3.,4.,5.,6.])
+    print(BTD@ans)
+    #vector_folded = np.array([1.,2.,3.,4.,5.,6.]).reshape(3,2)
+    vector_folded = jnp.array([156., 176., 361., 403., 228., 264.]).reshape(3,2)
+    x_folded = solve_block_tridiag(D, L, U, vector_folded)
+    print(x_folded)
+    print(x_folded.shape)
+    x = x_folded.flatten()
+    print(np.sum((BTD@x - vector_folded.flatten())**2))
+
+
 if __name__ == "__main__":
-    test_solve_tridiag()
+    test_solve_block_tridiag()
+#    test_solve_tridiag()
