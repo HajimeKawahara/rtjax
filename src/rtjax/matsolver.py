@@ -154,8 +154,8 @@ def test_solve_block_tridiag_mimic():
     L = jnp.array([np.array([[5., 0], [0, 5]]), np.array([[6, 0], [0, 6]]), np.array([[7, 0], [0, 7]])])
     U = jnp.array([np.array([[8., 0], [0, 8]]), np.array([[9, 0], [0, 9]]), np.array([[10, 0], [0, 10]])])
     BTD = generate_block_tridiagonal(D, L, U)
-    vector_folded = jnp.array([1.,1.,2.,2.,3.,3.,4.,4.]).reshape(4,2)
-    
+    vector_folded = jnp.array([4.,4.,3.,3.,2.,2.,1.,1.]).reshape(4,2)
+
     x_folded = solve_block_tridiag(D, L, U, vector_folded)
     print(x_folded, "block tridiag")
     print(x_folded.shape)
