@@ -156,6 +156,7 @@ def test_solve_vmaptridiag():
     vdiag = jnp.array([diag for _ in range(nlayer)])
     vlower_diag = jnp.array([lower_diag for _ in range(nlayer)])
     vupper_diag = jnp.array([upper_diag for _ in range(nlayer)])
+
     vsolve_tridiag = vmap(solve_tridiag, (0, 0, 0, 0), 0)
 
     x = vsolve_tridiag(vdiag, vlower_diag, vupper_diag, vvector)
